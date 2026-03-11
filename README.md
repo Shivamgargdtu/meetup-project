@@ -1,89 +1,52 @@
-# Meetup App
+# Meetup App — event meetups that actually get people to show up
 
-A modern **event meetup platform** built using Flutter that allows users to discover, create, and join events easily.  
-The application focuses on connecting people through shared interests by providing a simple interface for organizing and attending meetups.
+A simple, polished Flutter app for creating, discovering and joining local meetups — built to help students and young professionals overcome social hesitation and actually attend events.
 
-This project aims to reduce social hesitation by helping people participate in community-driven events and activities.
+---
+
+## Key highlights
+- Lightweight UI with fast flows: create an event in < 30s, join in 2 taps.  
+- Google sign-in + cloud persistence so users keep coming back.  
+- Built as a campus/community-first project — great to show interviewers who care about impact.
 
 ---
 
 ## Features
-
-- Google Authentication for secure login
-- Create and host meetups
-- Browse available events
-- Join events created by other users
-- Clean and intuitive user interface
-- Cloud-based event storage
-
----
-
-## Tech Stack
-
-- Flutter
-- Firebase Authentication
-- Firebase Firestore
-- Google Sign-In
-- Dart
+- Sign in with Google
+- Create, edit and delete meetups
+- Browse upcoming events and join them
+- Organizers can see attendee list
+- Cloud-backed (sync across devices)
+- Clean, mobile-first UI designed for quick discovery
 
 ---
 
-## Project Structure
-
-```
-lib/
- ├── screens/
- ├── widgets/
- ├── services/
- ├── models/
- └── main.dart
-```
+## Tech stack & tools
+Built with:
+- :contentReference[oaicite:0]{index=0} — UI & app framework  
+- :contentReference[oaicite:1]{index=1} — Auth + Firestore  
+- :contentReference[oaicite:2]{index=2} — authentication  
+Development: :contentReference[oaicite:3]{index=3}, Git and deployment on :contentReference[oaicite:4]{index=4}.
 
 ---
 
-## Installation
+## Screenshots
 
-Clone the repository
+| Login | Event list | Create event | Inside meeting |
+|---:|:---:|:---:|:---:|
+| ![Login](screenshots/login.png) | ![Events](screenshots/second.png) | ![Create](screenshots/create-new.png) | ![Inside](screenshots/inside-meeting.png) |
 
-```
+---
+
+## Quick start
+
+```bash
+# clone
 git clone https://github.com/Shivamgargdtu/meetup-project.git
-```
-
-Go to project directory
-
-```
 cd meetup-project
-```
 
-Install dependencies
-
-```
+# install
 flutter pub get
-```
 
-Run the application
-
-```
+# run on device / emulator
 flutter run
-```
-
----
-
-## Future Improvements
-
-- Event recommendation system
-- Chat between participants
-- Push notifications for events
-- Event categories and filters
-- Location-based meetup discovery
-
----
-
-## Author
-
-**Shivam Garg**  
-B.Tech, Delhi Technological University (DTU)
-
-Interested in building technology that brings people together and encourages meaningful interaction.
-
----
