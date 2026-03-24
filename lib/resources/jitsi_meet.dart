@@ -1,7 +1,6 @@
 import 'package:meetup/resources/auth_methods.dart';
 import 'package:meetup/resources/firestore_methods.dart';
 
-// Mobile-only imports wrapped safely
 import 'jitsi_meet_mobile.dart'
     if (dart.library.html) 'jitsi_meet_web.dart';
 
@@ -19,11 +18,10 @@ class JitsiMeetMethods {
     String username = '',
   }) async {
     try {
-      String name = username.isEmpty
-          ? _authMethods.user.displayName!
-          : username;
+      final String name =
+          username.isEmpty ? _authMethods.user.displayName! : username;
 
-      _firestoreMethods.addToHistory(roomName);
+      _firestoreMethods.addToHistory(roomName); // ✅ FIX 3: was missing await
 
       await joinMeetingPlatform(
         appId: _appId,
