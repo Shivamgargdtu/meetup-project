@@ -19,13 +19,13 @@ class _MeetingScreenState extends State<MeetingScreen>
 
   // ── Daily quote — cycles by weekday, easy to swap for an API later ──
   static const _quotes = [
-    ("The quality of your life is the quality of your communication.", "Tony Robbins"),
-    ("Connection is why we're here.", "Brené Brown"),
-    ("A conversation is a journey, and what gives it value is fear.", "Susan Sontag"),
-    ("The most courageous act is to think for yourself. Aloud.", "Coco Chanel"),
-    ("We are all connected; to each other, biologically.", "Neil deGrasse Tyson"),
-    ("Words are, of course, the most powerful drug.", "Rudyard Kipling"),
-    ("Speak in such a way that others love to listen to you.", "Unknown"),
+    ("The way we communicate with others and with ourselves ultimately determines the quality of our lives.", "Tony Robbins"),
+    ("Connection is why we’re here. We are hardwired to connect with others; it’s what gives purpose and meaning to our lives.", "Brené Brown"),
+    ("We are all connected; to each other, biologically. To the earth, chemically. To the rest of the universe atomically.", "Neil deGrasse Tyson"),
+    ("I am, by calling, a dealer in words; and words are, of course, the most powerful drug used by mankind.", "Rudyard Kipling"),
+    ("Vulnerability is the birthplace of innovation, creativity and change.", "Brené Brown"),
+    ("Communication is a skill that you can learn. If you're willing to work at it, you can rapidly improve the quality of your life.", "Brian Tracy"),
+    ("Leadership requires two things: a vision of the world that does not yet exist and the ability to communicate it.", "Simon Sinek"),
   ];
 
   (String, String) get _todaysQuote {
@@ -99,7 +99,7 @@ class _MeetingScreenState extends State<MeetingScreen>
                   end: Alignment.bottomCenter,
                   stops: const [0.0, 0.38, 0.72, 1.0],
                   colors: [
-                    Colors.black.withOpacity(0.10),
+                    Colors.black.withOpacity(0.60),
                     Colors.black.withOpacity(0.28),
                     Colors.black.withOpacity(0.65),
                     Colors.black.withOpacity(0.88),
@@ -220,7 +220,7 @@ class _ActionRow extends StatelessWidget {
       child: BackdropFilter(
         filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
         child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 10),
+          padding: const EdgeInsets.symmetric(horizontal: 3, vertical: 17),
           decoration: BoxDecoration(
             color: Colors.white.withOpacity(0.08),
             borderRadius: BorderRadius.circular(22),
@@ -325,7 +325,7 @@ class _PillState extends State<_Pill> with SingleTickerProviderStateMixin {
               Text(
                 widget.label,
                 style: TextStyle(
-                  fontSize: 10.5,
+                  fontSize: 15,
                   letterSpacing: 0.2,
                   fontWeight: widget.highlight
                       ? FontWeight.w700

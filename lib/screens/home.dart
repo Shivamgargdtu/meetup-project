@@ -29,9 +29,9 @@ class _HomeScreenState extends State<HomeScreen> {
     return Scaffold(
       appBar: AppBar(
         elevation: 0,
-        title: const Text('Meet & Chat'),
+        title: const Text('Meet Up App', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w600,fontFamily: 'Arial'),),
         centerTitle: true,
-        //backgroundColor: const Color.fromARGB(255, 255, 207, 153),
+        backgroundColor: const Color.fromARGB(255, 43, 40, 40),
       ),
       body: pages[page],
       bottomNavigationBar: BottomNavigationBar(
