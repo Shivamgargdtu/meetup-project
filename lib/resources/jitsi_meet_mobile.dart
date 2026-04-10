@@ -1,4 +1,4 @@
-import 'package:jitsi_meet_flutter_sdk/jitsi_meet_flutter_sdk.dart';
+/*import 'package:jitsi_meet_flutter_sdk/jitsi_meet_flutter_sdk.dart';
 
 Future<void> joinMeetingPlatform({
   required String appId,
@@ -32,6 +32,46 @@ Future<void> joinMeetingPlatform({
       "autoKnockLobby": false,
       "lobby.autoKnock": false,
       "disableModeratorIndicator": false,
+    },
+  );
+
+  await jitsiMeet.join(options);
+}*/
+import 'package:jitsi_meet_flutter_sdk/jitsi_meet_flutter_sdk.dart';
+import 'package:meetup/utils/constants.dart';
+
+Future<void> joinMeetingPlatform({
+  required String appId,
+  required String roomName,
+  required String displayName,
+  required String email,
+  required String avatar,
+  required bool isAudioMuted,
+  required bool isVideoMuted,
+}) async {
+  final jitsiMeet = JitsiMeet();
+
+  final options = JitsiMeetConferenceOptions(
+    serverURL: AppConstants.jitsiServerUrl,
+    room: '$appId/$roomName',
+    userInfo: JitsiMeetUserInfo(
+      displayName: displayName,
+      email: email,
+      avatar: avatar,
+    ),
+    featureFlags: const {
+      'lobby-mode.enabled': false,
+      'add-people.enabled': false,
+      'invite.enabled': false,
+    },
+    configOverrides: {
+      'startWithAudioMuted': isAudioMuted,
+      'startWithVideoMuted': isVideoMuted,
+      'prejoinPageEnabled': false,
+      'enableLobby': false,
+      'autoKnockLobby': false,
+      'lobby.autoKnock': false,
+      'disableModeratorIndicator': false,
     },
   );
 

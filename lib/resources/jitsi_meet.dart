@@ -1,5 +1,7 @@
+import 'package:flutter/foundation.dart';
 import 'package:meetup/resources/auth_methods.dart';
 import 'package:meetup/resources/firestore_methods.dart';
+import 'package:meetup/utils/constants.dart';
 
 import 'jitsi_meet_mobile.dart'
     if (dart.library.html) 'jitsi_meet_web.dart';
@@ -8,32 +10,39 @@ class JitsiMeetMethods {
   final AuthMethods _authMethods = AuthMethods();
   final FirestoreMethods _firestoreMethods = FirestoreMethods();
 
-  static const String _appId =
-      "vpaas-magic-cookie-2c7a81b33b4943b396ee51b15e180056";
-
-  void createMeet({
-    required String roomName,
+  /// [roomId]      – the raw Jitsi room name, e.g. "31832+1775846574137"
+  /// [displayName] – human-friendly label stored in history, e.g. "Meeting #31832"
+  Future<void> createMeet({
+    required String roomId,
+    required String displayName,
     required bool isAudioMuted,
     required bool isVideoMuted,
     String username = '',
+    String meetingType = 'created',
   }) async {
     try {
-      final String name =
-          username.isEmpty ? _authMethods.user.displayName! : username;
+      final user = _authMethods.user;
+      final name = username.isNotEmpty
+          ? username
+          : (user.isAnonymous ? 'Guest' : (user.displayName ?? 'User'));
 
-      _firestoreMethods.addToHistory(roomName); // ✅ FIX 3: was missing await
+      await _firestoreMethods.addToHistory(
+        roomId: roomId,
+        displayName: displayName,
+        meetingType: meetingType,
+      );
 
       await joinMeetingPlatform(
-        appId: _appId,
-        roomName: roomName,
+        appId: AppConstants.jitsiAppId,
+        roomName: roomId,
         displayName: name,
-        email: _authMethods.user.email ?? '',
-        avatar: _authMethods.user.photoURL ?? '',
+        email: user.email ?? '',
+        avatar: user.photoURL ?? '',
         isAudioMuted: isAudioMuted,
         isVideoMuted: isVideoMuted,
       );
     } catch (e) {
-      print(e.toString());
+      debugPrint('createMeet error: $e');
     }
   }
 }

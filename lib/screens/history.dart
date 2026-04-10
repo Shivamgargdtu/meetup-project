@@ -1,136 +1,403 @@
 import 'package:flutter/material.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:meetup/resources/firestore_methods.dart';
 import 'package:intl/intl.dart';
+import 'package:meetup/models/meeting.dart';
+import 'package:meetup/resources/firestore_methods.dart';
+import 'package:meetup/screens/meeting_details.dart';
 
-class HistoryScreen extends StatelessWidget {
+// ─────────────────────────────────────────────────────────────────────────────
+enum _Filter { all, created, joined, starred }
+
+extension _FilterLabel on _Filter {
+  String get label {
+    switch (this) {
+      case _Filter.all:     return 'All';
+      case _Filter.created: return 'Created';
+      case _Filter.joined:  return 'Joined';
+      case _Filter.starred: return 'Starred';
+    }
+  }
+}
+// ─────────────────────────────────────────────────────────────────────────────
+
+class HistoryScreen extends StatefulWidget {
   const HistoryScreen({super.key});
 
-  /// Converts raw room IDs like "meet_34333_1772953061792"
-  /// or "34333+1772953061792" into a friendly display name.
-  String _formatRoomName(String? raw) {
-    if (raw == null || raw.trim().isEmpty) return 'Unnamed Meeting';
+  @override
+  State<HistoryScreen> createState() => _HistoryScreenState();
+}
 
-    // Strip leading "meet_" prefix if present
-    String cleaned = raw.replaceFirst(RegExp(r'^meet_'), '');
+class _HistoryScreenState extends State<HistoryScreen> {
+  final _searchCtrl = TextEditingController();
+  _Filter _filter = _Filter.all;
+  String _query = '';
 
-    // Extract just the short numeric ID before any separator
-    final parts = cleaned.split(RegExp(r'[_+]'));
-    if (parts.isNotEmpty && parts[0].isNotEmpty) {
-      return 'Meeting #${parts[0]}';
+  @override
+  void initState() {
+    super.initState();
+    _searchCtrl.addListener(
+        () => setState(() => _query = _searchCtrl.text.trim().toLowerCase()));
+  }
+
+  @override
+  void dispose() {
+    _searchCtrl.dispose();
+    super.dispose();
+  }
+
+  List<MeetingHistoryItem> _applyFilter(List<MeetingHistoryItem> all) {
+    var list = switch (_filter) {
+      _Filter.created => all.where((m) => m.meetingType == 'created').toList(),
+      _Filter.joined  => all.where((m) => m.meetingType == 'joined').toList(),
+      _Filter.starred => all.where((m) => m.isFavorite).toList(),
+      _Filter.all     => all,
+    };
+    if (_query.isNotEmpty) {
+      list = list
+          .where((m) =>
+              m.displayName.toLowerCase().contains(_query) ||
+              m.roomId.toLowerCase().contains(_query))
+          .toList();
     }
-    return 'Meeting';
+    return list;
   }
 
   @override
   Widget build(BuildContext context) {
-    return StreamBuilder<QuerySnapshot>(
-      stream: FirestoreMethods().meetingsHistory,
-      builder: (context, snapshot) {
-        // ── Loading ──────────────────────────────────────────────────
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Center(
-            child: CircularProgressIndicator(
-              color: Color(0xFF00C9A7),
-              strokeWidth: 2.5,
+    final stream = FirestoreMethods().meetingsHistory;
+
+    return Stack(
+      children: [
+        // ── Anime background — intentionally very dim ───────────────────
+        Positioned.fill(
+          child: Image.asset('assets/images/anime.png', fit: BoxFit.cover),
+        ),
+        Positioned.fill(
+          child: Container(color: Colors.black.withOpacity(0.87)),
+        ),
+
+        // ── Content ─────────────────────────────────────────────────────
+        Column(
+          children: [
+            _SearchBar(controller: _searchCtrl),
+            _FilterBar(
+              current: _filter,
+              onChanged: (f) => setState(() => _filter = f),
             ),
-          );
-        }
+            Expanded(
+              child: stream == null
+                  ? const _Hint(
+                      icon: Icons.lock_outline_rounded,
+                      title: 'History unavailable',
+                      subtitle:
+                          'Sign in to save and view\nyour meeting history.',
+                    )
+                  : StreamBuilder<List<MeetingHistoryItem>>(
+                      stream: stream,
+                      builder: (ctx, snap) {
+                        if (snap.connectionState == ConnectionState.waiting) {
+                          return const Center(
+                            child: CircularProgressIndicator(
+                              color: Color(0xFF00C9A7),
+                              strokeWidth: 2.5,
+                            ),
+                          );
+                        }
+                        if (snap.hasError) {
+                          return const _Hint(
+                            icon: Icons.wifi_off_rounded,
+                            title: 'Could not load history',
+                            subtitle: 'Check your connection\nand try again.',
+                          );
+                        }
 
-        // ── Error ────────────────────────────────────────────────────
-        if (snapshot.hasError) {
-          return _CenteredHint(
-            icon: Icons.wifi_off_rounded,
-            title: 'Could not load history',
-            subtitle: 'Check your connection and try again.',
-          );
-        }
+                        final all = snap.data ?? [];
+                        if (all.isEmpty) {
+                          return const _Hint(
+                            icon: Icons.history_toggle_off_rounded,
+                            title: 'No meetings yet',
+                            subtitle:
+                                'Meetings you join or create\nwill appear here.',
+                          );
+                        }
 
-        // ── Empty ────────────────────────────────────────────────────
-        final docs = snapshot.data?.docs ?? [];
-        if (docs.isEmpty) {
-          return _CenteredHint(
-            icon: Icons.history_toggle_off_rounded,
-            title: 'No meetings yet',
-            subtitle: "Meetings you join or create\nwill appear here.",
-          );
-        }
-
-        // ── List ─────────────────────────────────────────────────────
-        return ListView.separated(
-          padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
-          itemCount: docs.length,
-          separatorBuilder: (_, __) => const SizedBox(height: 10),
-          itemBuilder: (context, index) {
-            final doc = docs[index];
-            final rawName = doc['meetingName'] as String?;
-            final createdAt =
-                (doc['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now();
-
-            final friendlyName = _formatRoomName(rawName);
-            final dateStr = DateFormat('MMM d, yyyy').format(createdAt);
-            final timeStr = DateFormat('h:mm a').format(createdAt);
-            final isToday = DateFormat.yMd().format(createdAt) ==
-                DateFormat.yMd().format(DateTime.now());
-
-            return _MeetingCard(
-              friendlyName: friendlyName,
-              rawName: rawName,
-              dateStr: isToday ? 'Today' : dateStr,
-              timeStr: timeStr,
-              index: index,
-            );
-          },
-        );
-      },
+                        final visible = _applyFilter(all);
+                        return Column(
+                          children: [
+                            _StatsStrip(meetings: all),
+                            if (visible.isEmpty)
+                              const Expanded(
+                                child: _Hint(
+                                  icon: Icons.search_off_rounded,
+                                  title: 'No results',
+                                  subtitle:
+                                      'Try a different search or filter.',
+                                ),
+                              )
+                            else
+                              Expanded(
+                                child: ListView.separated(
+                                  padding: const EdgeInsets.fromLTRB(
+                                      16, 12, 16, 32),
+                                  itemCount: visible.length,
+                                  separatorBuilder: (_, __) =>
+                                      const SizedBox(height: 10),
+                                  itemBuilder: (ctx, i) => _MeetingCard(
+                                    meeting: visible[i],
+                                    index: i,
+                                    onTap: () => MeetingDetailsSheet.show(
+                                        ctx, visible[i]),
+                                    onFavToggle: () async {
+                                      await FirestoreMethods().toggleFavorite(
+                                        visible[i].id,
+                                        value: !visible[i].isFavorite,
+                                      );
+                                    },
+                                  ),
+                                ),
+                              ),
+                          ],
+                        );
+                      },
+                    ),
+            ),
+          ],
+        ),
+      ],
     );
   }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// SEARCH BAR
+// ─────────────────────────────────────────────────────────────────────────────
+class _SearchBar extends StatelessWidget {
+  final TextEditingController controller;
+  const _SearchBar({required this.controller});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 14, 16, 8),
+      child: TextField(
+        controller: controller,
+        style: const TextStyle(color: Colors.white, fontSize: 14),
+        cursorColor: Colors.white54,
+        decoration: InputDecoration(
+          hintText: 'Search meetings…',
+          hintStyle: TextStyle(color: Colors.white.withOpacity(0.3)),
+          prefixIcon:
+              Icon(Icons.search_rounded, color: Colors.white.withOpacity(0.3)),
+          suffixIcon: controller.text.isNotEmpty
+              ? IconButton(
+                  icon: Icon(Icons.close_rounded,
+                      size: 18, color: Colors.white.withOpacity(0.4)),
+                  onPressed: () => controller.clear(),
+                )
+              : null,
+          filled: true,
+          fillColor: Colors.white.withOpacity(0.07),
+          contentPadding: const EdgeInsets.symmetric(vertical: 0),
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(14),
+            borderSide: BorderSide.none,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// FILTER BAR
+// ─────────────────────────────────────────────────────────────────────────────
+class _FilterBar extends StatelessWidget {
+  final _Filter current;
+  final ValueChanged<_Filter> onChanged;
+  const _FilterBar({required this.current, required this.onChanged});
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: 36,
+      child: ListView(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: 14),
+        children: _Filter.values.map((f) {
+          final active = f == current;
+          return Padding(
+            padding: const EdgeInsets.only(right: 8),
+            child: GestureDetector(
+              onTap: () => onChanged(f),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 200),
+                padding: const EdgeInsets.symmetric(
+                    horizontal: 14, vertical: 7),
+                decoration: BoxDecoration(
+                  color: active
+                      ? const Color(0xFF007AFF)
+                      : Colors.white.withOpacity(0.07),
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(
+                    color: active
+                        ? Colors.transparent
+                        : Colors.white.withOpacity(0.1),
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    if (f == _Filter.starred) ...[
+                      Icon(Icons.star_rounded,
+                          size: 13,
+                          color: active
+                              ? Colors.white
+                              : Colors.white.withOpacity(0.45)),
+                      const SizedBox(width: 4),
+                    ],
+                    Text(
+                      f.label,
+                      style: TextStyle(
+                        color: active
+                            ? Colors.white
+                            : Colors.white.withOpacity(0.45),
+                        fontSize: 12.5,
+                        fontWeight: active
+                            ? FontWeight.w700
+                            : FontWeight.w400,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          );
+        }).toList(),
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// STATS STRIP
+// ─────────────────────────────────────────────────────────────────────────────
+class _StatsStrip extends StatelessWidget {
+  final List<MeetingHistoryItem> meetings;
+  const _StatsStrip({required this.meetings});
+
+  @override
+  Widget build(BuildContext context) {
+    final now = DateTime.now();
+    final weekStart = now.subtract(Duration(days: now.weekday - 1));
+    final thisWeek =
+        meetings.where((m) => m.createdAt.isAfter(weekStart)).length;
+    final starred = meetings.where((m) => m.isFavorite).length;
+    final created = meetings.where((m) => m.meetingType == 'created').length;
+
+    return Container(
+      margin: const EdgeInsets.fromLTRB(16, 10, 16, 4),
+      padding: const EdgeInsets.symmetric(vertical: 12),
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.04),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: Colors.white.withOpacity(0.07)),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+        children: [
+          _Stat('${meetings.length}', 'Total',
+              const Color(0xFF007AFF)),
+          _StatDivider(),
+          _Stat('$thisWeek', 'This week',
+              const Color(0xFF00C9A7)),
+          _StatDivider(),
+          _Stat('$created', 'Created',
+              const Color(0xFF8E2DE2)),
+          _StatDivider(),
+          _Stat('$starred', 'Starred',
+              const Color(0xFFFFB300)),
+        ],
+      ),
+    );
+  }
+}
+
+class _Stat extends StatelessWidget {
+  final String value;
+  final String label;
+  final Color color;
+  const _Stat(this.value, this.label, this.color);
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(value,
+            style: TextStyle(
+                color: color,
+                fontSize: 18,
+                fontWeight: FontWeight.w700,
+                letterSpacing: -0.5)),
+        const SizedBox(height: 2),
+        Text(label,
+            style: TextStyle(
+                color: Colors.white.withOpacity(0.35),
+                fontSize: 10.5,
+                letterSpacing: 0.3)),
+      ],
+    );
+  }
+}
+
+class _StatDivider extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) =>
+      Container(width: 1, height: 28, color: Colors.white.withOpacity(0.07));
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
 // MEETING CARD
 // ─────────────────────────────────────────────────────────────────────────────
 class _MeetingCard extends StatelessWidget {
-  final String friendlyName;
-  final String? rawName;
-  final String dateStr;
-  final String timeStr;
+  final MeetingHistoryItem meeting;
   final int index;
+  final VoidCallback onTap;
+  final VoidCallback onFavToggle;
 
   const _MeetingCard({
-    required this.friendlyName,
-    required this.rawName,
-    required this.dateStr,
-    required this.timeStr,
+    required this.meeting,
     required this.index,
+    required this.onTap,
+    required this.onFavToggle,
   });
 
-  // Cycle through a few accent colours for visual variety
-  Color get _accentColor {
-    const colors = [
+  Color get _accent {
+    const palette = [
       Color(0xFF007AFF),
       Color(0xFF8E2DE2),
       Color(0xFF0F7B6C),
       Color(0xFFFF6B00),
       Color(0xFFE91E8C),
     ];
-    return colors[index % colors.length];
+    return palette[index % palette.length];
   }
 
   @override
   Widget build(BuildContext context) {
+    final isToday = DateFormat.yMd().format(meeting.createdAt) ==
+        DateFormat.yMd().format(DateTime.now());
+    final dateStr =
+        isToday ? 'Today' : DateFormat('MMM d, yyyy').format(meeting.createdAt);
+    final timeStr = DateFormat('h:mm a').format(meeting.createdAt);
+
     return Container(
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(18),
-        color: const Color(0xFF1C1C2E),
-        border: Border.all(
-          color: _accentColor.withOpacity(0.25),
-          width: 1.1,
-        ),
+        color: const Color(0xFF14142B),
+        border: Border.all(color: _accent.withOpacity(0.22), width: 1),
         boxShadow: [
           BoxShadow(
-            color: _accentColor.withOpacity(0.08),
-            blurRadius: 12,
+            color: _accent.withOpacity(0.06),
+            blurRadius: 14,
             offset: const Offset(0, 4),
           ),
         ],
@@ -140,68 +407,73 @@ class _MeetingCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(18),
         child: InkWell(
           borderRadius: BorderRadius.circular(18),
-          onTap: () {}, // hook up rejoin logic here later
+          onTap: onTap,
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+            padding: const EdgeInsets.symmetric(
+                horizontal: 14, vertical: 13),
             child: Row(
               children: [
-                // ── Left accent icon ─────────────────────────────────
+                // Icon
                 Container(
-                  width: 46,
-                  height: 46,
+                  width: 44,
+                  height: 44,
                   decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(13),
-                    gradient: LinearGradient(
-                      colors: [
-                        _accentColor,
-                        _accentColor.withOpacity(0.6),
-                      ],
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                    ),
+                    borderRadius: BorderRadius.circular(12),
+                    color: _accent.withOpacity(0.18),
+                    border: Border.all(
+                        color: _accent.withOpacity(0.3), width: 0.8),
                   ),
-                  child: const Icon(
-                    Icons.videocam_rounded,
-                    color: Colors.white,
-                    size: 22,
-                  ),
+                  child: Icon(Icons.videocam_rounded,
+                      color: _accent, size: 20),
                 ),
+                const SizedBox(width: 13),
 
-                const SizedBox(width: 14),
-
-                // ── Text block ───────────────────────────────────────
+                // Labels
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        friendlyName,
+                        // This now shows "Meeting #31832" — never the raw ID
+                        meeting.displayName,
                         style: const TextStyle(
                           color: Colors.white,
-                          fontSize: 15,
+                          fontSize: 14.5,
                           fontWeight: FontWeight.w700,
                           letterSpacing: -0.2,
                         ),
                       ),
-                      const SizedBox(height: 3),
-                      // Raw room ID as muted subtitle
-                      if (rawName != null && rawName!.trim().isNotEmpty)
-                        Text(
-                          rawName!,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            color: Colors.white.withOpacity(0.35),
-                            fontSize: 11.5,
+                      const SizedBox(height: 4),
+                      Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 6, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: (meeting.meetingType == 'created'
+                                      ? const Color(0xFF007AFF)
+                                      : const Color(0xFF8E2DE2))
+                                  .withOpacity(0.12),
+                              borderRadius: BorderRadius.circular(5),
+                            ),
+                            child: Text(
+                              meeting.meetingType,
+                              style: TextStyle(
+                                color: meeting.meetingType == 'created'
+                                    ? const Color(0xFF007AFF)
+                                    : const Color(0xFFAB82FF),
+                                fontSize: 10,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
                           ),
-                        ),
+                        ],
+                      ),
                     ],
                   ),
                 ),
 
-                const SizedBox(width: 10),
-
-                // ── Date / time chip ─────────────────────────────────
+                // Date + star
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
@@ -209,14 +481,14 @@ class _MeetingCard extends StatelessWidget {
                       padding: const EdgeInsets.symmetric(
                           horizontal: 8, vertical: 3),
                       decoration: BoxDecoration(
-                        color: _accentColor.withOpacity(0.15),
-                        borderRadius: BorderRadius.circular(8),
+                        color: _accent.withOpacity(0.13),
+                        borderRadius: BorderRadius.circular(7),
                       ),
                       child: Text(
                         dateStr,
                         style: TextStyle(
-                          color: _accentColor,
-                          fontSize: 11,
+                          color: _accent,
+                          fontSize: 10.5,
                           fontWeight: FontWeight.w700,
                         ),
                       ),
@@ -225,8 +497,21 @@ class _MeetingCard extends StatelessWidget {
                     Text(
                       timeStr,
                       style: TextStyle(
-                        color: Colors.white.withOpacity(0.4),
-                        fontSize: 11,
+                        color: Colors.white.withOpacity(0.35),
+                        fontSize: 10.5,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    GestureDetector(
+                      onTap: onFavToggle,
+                      child: Icon(
+                        meeting.isFavorite
+                            ? Icons.star_rounded
+                            : Icons.star_border_rounded,
+                        size: 18,
+                        color: meeting.isFavorite
+                            ? const Color(0xFFFFB300)
+                            : Colors.white.withOpacity(0.2),
                       ),
                     ),
                   ],
@@ -241,18 +526,14 @@ class _MeetingCard extends StatelessWidget {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// CENTERED HINT  (empty & error state)
+// EMPTY / ERROR HINT
 // ─────────────────────────────────────────────────────────────────────────────
-class _CenteredHint extends StatelessWidget {
+class _Hint extends StatelessWidget {
   final IconData icon;
   final String title;
   final String subtitle;
-
-  const _CenteredHint({
-    required this.icon,
-    required this.title,
-    required this.subtitle,
-  });
+  const _Hint(
+      {required this.icon, required this.title, required this.subtitle});
 
   @override
   Widget build(BuildContext context) {
@@ -262,26 +543,22 @@ class _CenteredHint extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon, size: 52, color: Colors.white.withOpacity(0.18)),
+            Icon(icon,
+                size: 48,
+                color: Colors.white.withOpacity(0.15)),
             const SizedBox(height: 16),
-            Text(
-              title,
-              style: TextStyle(
-                color: Colors.white.withOpacity(0.65),
-                fontSize: 17,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
+            Text(title,
+                style: TextStyle(
+                    color: Colors.white.withOpacity(0.6),
+                    fontSize: 17,
+                    fontWeight: FontWeight.w700)),
             const SizedBox(height: 6),
-            Text(
-              subtitle,
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                color: Colors.white.withOpacity(0.35),
-                fontSize: 13.5,
-                height: 1.5,
-              ),
-            ),
+            Text(subtitle,
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                    color: Colors.white.withOpacity(0.3),
+                    fontSize: 13.5,
+                    height: 1.5)),
           ],
         ),
       ),

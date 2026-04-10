@@ -1,8 +1,10 @@
 import 'dart:math';
 import 'dart:ui';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:meetup/resources/jitsi_meet.dart';
+import 'package:meetup/utils/constants.dart';
 
 class MeetingScreen extends StatefulWidget {
   const MeetingScreen({super.key});
@@ -17,21 +19,39 @@ class _MeetingScreenState extends State<MeetingScreen>
   late AnimationController _ctrl;
   late Animation<double> _fade;
 
-  // ── Daily quote — cycles by weekday, easy to swap for an API later ──
   static const _quotes = [
-    ("The way we communicate with others and with ourselves ultimately determines the quality of our lives.", "Tony Robbins"),
-    ("Connection is why we’re here. We are hardwired to connect with others; it’s what gives purpose and meaning to our lives.", "Brené Brown"),
-    ("We are all connected; to each other, biologically. To the earth, chemically. To the rest of the universe atomically.", "Neil deGrasse Tyson"),
-    ("I am, by calling, a dealer in words; and words are, of course, the most powerful drug used by mankind.", "Rudyard Kipling"),
-    ("Vulnerability is the birthplace of innovation, creativity and change.", "Brené Brown"),
-    ("Communication is a skill that you can learn. If you're willing to work at it, you can rapidly improve the quality of your life.", "Brian Tracy"),
-    ("Leadership requires two things: a vision of the world that does not yet exist and the ability to communicate it.", "Simon Sinek"),
+    (
+      'The way we communicate with others and with ourselves ultimately determines the quality of our lives.',
+      'Tony Robbins'
+    ),
+    (
+      'Connection is why we\'re here. We are hardwired to connect with others; it\'s what gives purpose and meaning to our lives.',
+      'Brené Brown'
+    ),
+    (
+      'We are all connected; to each other, biologically. To the earth, chemically. To the rest of the universe atomically.',
+      'Neil deGrasse Tyson'
+    ),
+    (
+      'I am, by calling, a dealer in words; and words are, of course, the most powerful drug used by mankind.',
+      'Rudyard Kipling'
+    ),
+    (
+      'Vulnerability is the birthplace of innovation, creativity and change.',
+      'Brené Brown'
+    ),
+    (
+      'Communication is a skill that you can learn. If you\'re willing to work at it, you can rapidly improve the quality of your life.',
+      'Brian Tracy'
+    ),
+    (
+      'Leadership requires two things: a vision of the world that does not yet exist and the ability to communicate it.',
+      'Simon Sinek'
+    ),
   ];
 
-  (String, String) get _todaysQuote {
-    final idx = DateTime.now().weekday - 1; // 0–6
-    return _quotes[idx % _quotes.length];
-  }
+  (String, String) get _todaysQuote =>
+      _quotes[(DateTime.now().weekday - 1) % _quotes.length];
 
   @override
   void initState() {
@@ -48,25 +68,31 @@ class _MeetingScreenState extends State<MeetingScreen>
     super.dispose();
   }
 
+  // ── Room-name fix: store short ID in history, use full ID for Jitsi ──────
   void _createNewMeeting() {
-    final roomName =
-        "${Random().nextInt(100000)}+${DateTime.now().millisecondsSinceEpoch}";
+    final shortId = Random().nextInt(100000);
+    final roomId =
+        '$shortId+${DateTime.now().millisecondsSinceEpoch}'; // Jitsi room
+    final friendlyName = 'Meeting #$shortId';               // shown in history
     _jitsiMeetMethods.createMeet(
-        roomName: roomName, isAudioMuted: true, isVideoMuted: true);
+      roomId: roomId,
+      displayName: friendlyName,
+      isAudioMuted: true,
+      isVideoMuted: true,
+      meetingType: 'created',
+    );
   }
 
   void _joinMeeting() => Navigator.pushNamed(context, '/video');
 
   void _copyInvite() {
-    Clipboard.setData(ClipboardData(
-        text: "https://meet-up-app-kappa.vercel.app/"));
+    Clipboard.setData(const ClipboardData(text: AppConstants.appShareUrl));
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: const Text("Invite link copied"),
+        content: const Text('Invite link copied'),
         backgroundColor: Colors.black87,
         behavior: SnackBarBehavior.floating,
-        shape:
-            RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
         margin: const EdgeInsets.fromLTRB(20, 0, 20, 16),
         duration: const Duration(seconds: 2),
       ),
@@ -82,15 +108,9 @@ class _MeetingScreenState extends State<MeetingScreen>
       opacity: _fade,
       child: Stack(
         children: [
-          // ── ANIME BG ────────────────────────────────────────────────
           Positioned.fill(
-            child: Image.asset(
-              'assets/images/anime.png',
-              fit: BoxFit.cover,
-            ),
+            child: Image.asset('assets/images/anime.png', fit: BoxFit.cover),
           ),
-
-          // ── GRADIENT: light on top, heavy on bottom ──────────────────
           Positioned.fill(
             child: DecoratedBox(
               decoration: BoxDecoration(
@@ -108,26 +128,17 @@ class _MeetingScreenState extends State<MeetingScreen>
               ),
             ),
           ),
-
-          // ── CONTENT ──────────────────────────────────────────────────
           SafeArea(
             child: Column(
               children: [
-                // ── Top breathing room — art shows through ───────────
                 SizedBox(height: size.height * 0.28),
-
-                // ── QUOTE BLOCK ──────────────────────────────────────
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 28),
                   child: _QuoteBlock(quote: quote, author: author),
                 ),
-
                 const Spacer(),
-
-                // ── ACTION ROW ───────────────────────────────────────
                 Padding(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 20),
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
                   child: _ActionRow(
                     onNewMeeting: _createNewMeeting,
                     onJoin: _joinMeeting,
@@ -135,7 +146,6 @@ class _MeetingScreenState extends State<MeetingScreen>
                     onInvite: _copyInvite,
                   ),
                 ),
-
                 const SizedBox(height: 24),
               ],
             ),
@@ -147,8 +157,6 @@ class _MeetingScreenState extends State<MeetingScreen>
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// QUOTE BLOCK — the centrepiece
-// ─────────────────────────────────────────────────────────────────────────────
 class _QuoteBlock extends StatelessWidget {
   final String quote;
   final String author;
@@ -159,19 +167,15 @@ class _QuoteBlock extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Thin top rule
         Container(
-          width: 36,
-          height: 1.5,
+          width: 36, height: 1.5,
           color: Colors.white.withOpacity(0.35),
           margin: const EdgeInsets.only(bottom: 14),
         ),
-
-        // Big italic quote
         Text(
           '"$quote"',
           style: TextStyle(
-            fontFamily: 'Georgia', // elegant serif — no import needed
+            fontFamily: 'Georgia',
             fontSize: 20,
             fontStyle: FontStyle.italic,
             height: 1.55,
@@ -179,10 +183,7 @@ class _QuoteBlock extends StatelessWidget {
             letterSpacing: 0.1,
           ),
         ),
-
         const SizedBox(height: 12),
-
-        // Author — small, spaced caps
         Text(
           '— $author',
           style: TextStyle(
@@ -198,14 +199,8 @@ class _QuoteBlock extends StatelessWidget {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// ACTION ROW — four slim glass pills in a row
-// ─────────────────────────────────────────────────────────────────────────────
 class _ActionRow extends StatelessWidget {
-  final VoidCallback onNewMeeting;
-  final VoidCallback onJoin;
-  final VoidCallback onSchedule;
-  final VoidCallback onInvite;
-
+  final VoidCallback onNewMeeting, onJoin, onSchedule, onInvite;
   const _ActionRow({
     required this.onNewMeeting,
     required this.onJoin,
@@ -230,30 +225,16 @@ class _ActionRow extends StatelessWidget {
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceEvenly,
             children: [
-              _Pill(
-                icon: Icons.videocam_rounded,
-                label: "New",
-                onTap: onNewMeeting,
-                highlight: true,
-              ),
+              _Pill(icon: Icons.videocam_rounded, label: 'New',
+                  onTap: onNewMeeting, highlight: true),
               _VertDivider(),
-              _Pill(
-                icon: Icons.login_rounded,
-                label: "Join",
-                onTap: onJoin,
-              ),
+              _Pill(icon: Icons.login_rounded, label: 'Join', onTap: onJoin),
               _VertDivider(),
-              _Pill(
-                icon: Icons.calendar_month_rounded,
-                label: "Schedule",
-                onTap: onSchedule,
-              ),
+              _Pill(icon: Icons.calendar_month_rounded, label: 'Schedule',
+                  onTap: onSchedule),
               _VertDivider(),
-              _Pill(
-                icon: Icons.link_rounded,
-                label: "Share App",
-                onTap: onInvite,
-              ),
+              _Pill(icon: Icons.link_rounded, label: 'Share App',
+                  onTap: onInvite),
             ],
           ),
         ),
@@ -267,7 +248,6 @@ class _Pill extends StatefulWidget {
   final String label;
   final VoidCallback onTap;
   final bool highlight;
-
   const _Pill({
     required this.icon,
     required this.label,
@@ -280,8 +260,8 @@ class _Pill extends StatefulWidget {
 }
 
 class _PillState extends State<_Pill> with SingleTickerProviderStateMixin {
-  late AnimationController _ctrl;
-  late Animation<double> _scale;
+  late final AnimationController _ctrl;
+  late final Animation<double> _scale;
 
   @override
   void initState() {
@@ -304,23 +284,17 @@ class _PillState extends State<_Pill> with SingleTickerProviderStateMixin {
       scale: _scale,
       child: GestureDetector(
         onTapDown: (_) => _ctrl.forward(),
-        onTapUp: (_) {
-          _ctrl.reverse();
-          widget.onTap();
-        },
+        onTapUp: (_) { _ctrl.reverse(); widget.onTap(); },
         onTapCancel: () => _ctrl.reverse(),
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(
-                widget.icon,
-                size: 22,
-                color: widget.highlight
-                    ? Colors.white
-                    : Colors.white.withOpacity(0.65),
-              ),
+              Icon(widget.icon, size: 22,
+                  color: widget.highlight
+                      ? Colors.white
+                      : Colors.white.withOpacity(0.65)),
               const SizedBox(height: 5),
               Text(
                 widget.label,
@@ -345,11 +319,6 @@ class _PillState extends State<_Pill> with SingleTickerProviderStateMixin {
 
 class _VertDivider extends StatelessWidget {
   @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: 1,
-      height: 32,
-      color: Colors.white.withOpacity(0.1),
-    );
-  }
+  Widget build(BuildContext context) =>
+      Container(width: 1, height: 32, color: Colors.white.withOpacity(0.1));
 }
