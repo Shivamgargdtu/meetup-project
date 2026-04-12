@@ -1,47 +1,136 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-  <!--
-    If you are serving your web app in a path other than the root, change the
-    href value below to reflect the base path you are serving from.
-
-    The path provided below has to start and end with a slash "/" in order for
-    it to work correctly.
-
-    For more details:
-    * https://developer.mozilla.org/en-US/docs/Web/HTML/Element/base
-
-    This is a placeholder for base href that will be replaced by the value of
-    the `--base-href` argument provided to `flutter build`.
-  -->
   <meta name="referrer" content="no-referrer-when-downgrade">
   <base href="$FLUTTER_BASE_HREF">
 
   <meta charset="UTF-8">
   <meta content="IE=Edge" http-equiv="X-UA-Compatible">
-  <meta name="description" content="A new Flutter project.">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="MeetUp — Fast, private video meetings.">
+  <meta name="theme-color" content="#0a0a14">
 
-  <!-- iOS meta tags & icons -->
+  <!-- PWA / iOS -->
   <meta name="mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="black">
-  <meta name="apple-mobile-web-app-title" content="meetup">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="MeetUp">
   <link rel="apple-touch-icon" href="icons/Icon-192.png">
 
-  <!-- Favicon -->
-  <link rel="icon" type="image/png" href="favicon.png"/>
+  <!-- Open Graph -->
+  <meta property="og:title" content="MeetUp">
+  <meta property="og:description" content="Fast, private video meetings.">
+  <meta property="og:type" content="website">
 
-  <title>meetup</title>
+  <link rel="icon" type="image/png" href="favicon.png"/>
+  <title>MeetUp</title>
   <link rel="manifest" href="manifest.json">
+
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html, body {
+      height: 100%;
+      background: #0a0a14;
+      overflow: hidden;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* Loading screen — shown until Flutter takes over */
+    #loading {
+      position: fixed;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 28px;
+      background: #0a0a14;
+      z-index: 9999;
+      transition: opacity 0.4s ease, visibility 0.4s ease;
+    }
+
+    #loading.hidden {
+      opacity: 0;
+      visibility: hidden;
+      pointer-events: none;
+    }
+
+    .loading-logo {
+      width: 56px;
+      height: 56px;
+      border-radius: 16px;
+      background: rgba(255, 255, 255, 0.06);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    /* Camera icon drawn in CSS */
+    .loading-logo::before {
+      content: '';
+      display: block;
+      width: 24px;
+      height: 16px;
+      background: rgba(255, 255, 255, 0.55);
+      border-radius: 3px;
+      position: relative;
+    }
+    .loading-logo::after {
+      content: '';
+      position: absolute;
+      width: 0;
+      height: 0;
+      border-style: solid;
+      border-width: 6px 0 6px 9px;
+      border-color: transparent transparent transparent rgba(255,255,255,0.55);
+      margin-left: 34px;
+    }
+
+    .loading-wordmark {
+      color: rgba(255, 255, 255, 0.65);
+      font-size: 15px;
+      font-weight: 500;
+      letter-spacing: 0.04em;
+    }
+
+    /* Spinner ring */
+    .loading-ring {
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      border: 2px solid rgba(255, 255, 255, 0.08);
+      border-top-color: rgba(255, 255, 255, 0.45);
+      animation: spin 0.8s linear infinite;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    /* Flutter canvas — hidden until ready */
+    flt-glass-pane, flutter-view, .flt-text-editing-host {
+      background: transparent !important;
+    }
+  </style>
 </head>
 <body>
-  <!--
-    You can customize the "flutter_bootstrap.js" script.
-    This is useful to provide a custom configuration to the Flutter loader
-    or to give the user feedback during the initialization process.
+  <div id="loading">
+    <div class="loading-logo"></div>
+    <span class="loading-wordmark">MeetUp</span>
+    <div class="loading-ring"></div>
+  </div>
 
-    For more details:
-    * https://docs.flutter.dev/platform-integration/web/initialization
-  -->
   <script src="flutter_bootstrap.js" async></script>
+
+  <script>
+    // Hide the native loading screen once Flutter has painted its first frame.
+    window.addEventListener('flutter-first-frame', function () {
+      var el = document.getElementById('loading');
+      if (el) el.classList.add('hidden');
+    });
+  </script>
 </body>
 </html>
